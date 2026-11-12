@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="複習記分板排程 Scoreboarding 的指令狀態、功能單元與資料相依。">
+  <title>記分板排程 Scoreboarding｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 03 / DYNAMIC SCHEDULING</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 03</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 03 · DYNAMIC SCHEDULING</p>
+        <h1>記分板排程<br><span>Scoreboarding</span></h1>
+        <p class="article-lead">記分板把指令、功能單元與暫存器的狀態集中記錄，讓處理器可以動態判斷哪一條指令現在能安全地發射、執行與寫回。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>記分板排程（Scoreboarding）是一種動態排程（dynamic scheduling）方法。處理器使用記分板記錄三類資訊：指令目前位於哪個階段、每個功能單元（Functional Unit, FU）是否忙碌，以及每個暫存器的最新結果由哪個功能單元產生。指令只有在不會造成結構危障（Structural Hazard）或資料危障時，才會進入下一個階段。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>Issue：發射</strong><p>找到空閒且類型符合的功能單元後配置指令；若沒有空間，指令必須等待。</p></div>
+          <div class="concept-box"><strong>Read Operands：讀運算元</strong><p>等來源暫存器沒有尚未完成的生產者，再讀取運算元。</p></div>
+          <div class="concept-box"><strong>Execute：執行</strong><p>運算元就緒後啟動功能單元，完成時間依加法器、乘法器等單元而不同。</p></div>
+          <div class="concept-box"><strong>Write Result：寫回</strong><p>確認不會讓較早指令讀到錯誤值後，才把結果寫回暫存器。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用簡化的 RISC-V 風格指令與暫存器命名；有一個加法單元與一個乘法單元；記分板可追蹤每個功能單元的 Busy、Op、Fi、Fj、Fk、Qj、Qk 與運算元就緒狀態；忽略實際 cycle 數與同週期衝突的仲裁細節。</div>
+        <pre><code># I1 先產生 t0；I2 讀取 t0，因此有 RAW 相依
+I1: add  t0, t1, t2       # 發射到 Add FU，產生 t0
+I2: mul  t3, t0, t4       # 等 I1 寫回 t0 後才能讀取
+I3: add  t5, t6, t7       # 若 Add FU 忙碌，可能等待 Issue
+
+# 記分板的簡化追蹤
+# I1: Issue → Read Operands → Execute → Write Result
+# I2: Issue → 等待 t0 就緒 → Read Operands → Execute → Write Result</code></pre>
+        <p>I1 發射後，記分板會在暫存器結果狀態中標記 <span class="inline-code">t0</span> 的生產者是加法單元。I2 可以先被發射到乘法單元，但在 Read Operands 階段必須等 I1 完成並寫回 <span class="inline-code">t0</span>，這是 RAW（Read After Write）真實資料相依。I3 則可能因為唯一的加法單元正在處理 I1 而暫時無法發射，形成結構危障。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>記分板不是單純的指令佇列。</strong>它同時追蹤功能單元使用情形、暫存器結果來源與指令階段，目的是判斷何時可以安全前進。</li>
+          <li><strong>RAW 不能被消除。</strong>I2 真的需要 I1 產生的 <span class="inline-code">t0</span>，所以仍要等待資料；記分板只能安排等待時機。</li>
+          <li><strong>WAR 與 WAW 需要特別防止。</strong>記分板會延後讀取或寫回，避免較晚指令的動作破壞較早指令仍需要的資料；這和使用暫存器重新命名的 Tomasulo 方法不同。</li>
+          <li><strong>發射成功不代表指令已經執行完。</strong>指令可能已配置功能單元，卻仍在等運算元或等待寫回條件。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>若 <span class="inline-code">I1: add t0, t1, t2</span> 正在加法單元執行，而 <span class="inline-code">I2: mul t3, t0, t4</span> 已經發射到乘法單元，I2 為什麼不能立刻讀取 <span class="inline-code">t0</span> 並執行？這是哪一種危障？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>I2 不能立刻使用 <span class="inline-code">t0</span>，因為目前的 <span class="inline-code">t0</span> 是由 I1 產生，而 I1 尚未完成寫回；I2 必須等待正確值產生後才能讀取並執行。這是 RAW（Read After Write）危障，也就是實際存在的資料相依。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 03 · SCOREBOARDING</p>
+    </div>
+  </footer>
+</body>
+</html>

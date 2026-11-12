@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="比較資料危障 Data Hazards 中的 RAW、WAR 與 WAW，理解 pipeline 中的相依關係與處理方式。">
+  <title>資料危障 Data Hazards｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 02 / PIPELINE</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 02</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 02 · PIPELINE</p>
+        <h1>資料危障<br><span>Data Hazards</span></h1>
+        <p class="article-lead">當多條指令重疊執行時，前後指令對同一個暫存器的讀寫順序可能互相衝突。掌握 RAW、WAR、WAW，就能判斷 pipeline 何時需要 forwarding、stall 或其他硬體支援。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>資料危障（Data Hazard）是指令在 pipeline 中重疊執行時，因資料相依（data dependency）而可能讀到錯誤值，或破壞原本應有的寫入順序。判斷危障時，要先找出兩條指令是否使用同一個暫存器，再確認它們的讀寫順序。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>RAW · Read After Write</strong><p>後面的指令要讀取前面指令尚未寫回的結果，是真正的相依。</p></div>
+          <div class="concept-box"><strong>WAR · Write After Read</strong><p>後面的指令太早寫入，可能破壞前面指令尚未讀取的舊值。</p></div>
+          <div class="concept-box"><strong>WAW · Write After Write</strong><p>兩條指令都寫入同一處，若完成順序顛倒，最後留下的值可能錯誤。</p></div>
+          <div class="concept-box"><strong>記憶口訣</strong><p>第一個字母是前一條指令的動作，第二個字母是後一條指令的動作。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用 RV32I RISC-V；採用經典五階段 pipeline（IF、ID、EX、MEM、WB）；每條指令依序進入 pipeline；暫存器在 ID 讀取、WB 寫回；先忽略 forwarding、stall 與 register renaming，專注辨識相依類型。</div>
+        <pre><code># RAW：後指令讀取前指令尚未寫回的結果
+add  t0, t1, t2       # I1: t0 = t1 + t2
+sub  t3, t0, t4       # I2: 讀取 t0，依賴 I1 的結果
+
+# WAR：後指令寫入前指令尚未讀取的暫存器
+sub  t3, t0, t4       # I1: 先讀取 t0
+add  t0, t1, t2       # I2: 寫入 t0，不能搶在 I1 讀取之前
+
+# WAW：兩條指令寫入同一暫存器
+add  t0, t1, t2       # I1: 寫入 t0
+sub  t0, t3, t4       # I2: 也寫入 t0，最後結果應由 I2 決定</code></pre>
+        <p>在這個五階段、依序發射且依序完成的簡化 pipeline 中，最常直接遇到的是 <strong>RAW</strong>：I2 在 ID 或 EX 使用 <span class="inline-code">t0</span> 時，I1 可能還沒到 WB。處理器可以透過 forwarding 把 I1 的結果直接送到 I2，或在必要時插入 stall。WAR 與 WAW 通常需要亂序執行（out-of-order execution）或較深、多週期的 pipeline 才會成為實際問題；register renaming 可消除由名稱重複造成的 WAR、WAW。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>三種危障比較</h2>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>RAW：真正資料相依</strong><p>前者寫、後者讀。同一個暫存器承載了後者需要的值，例如 <span class="inline-code">I1: add t0</span> → <span class="inline-code">I2: sub ... t0</span>。</p></div>
+          <div class="concept-box"><strong>WAR：反相依</strong><p>前者讀、後者寫。後者若先寫，前者就讀不到舊值；常見於可亂序執行的處理器。</p></div>
+          <div class="concept-box"><strong>WAW：輸出相依</strong><p>前者寫、後者也寫。若後者先完成，前者晚到的寫入會留下錯誤的舊結果。</p></div>
+          <div class="concept-box"><strong>處理方向</strong><p>RAW 常靠 forwarding 或 stall；WAR、WAW 常靠依序完成或 register renaming。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>RAW 不代表一定要 stall。</strong>若硬體有 forwarding，結果可能繞過 WB 直接提供給下一條指令；load-use hazard 則常仍需要至少一個 stall。</li>
+          <li><strong>WAR 與 WAW 不是看指令文字順序就算完成。</strong>必須考慮處理器是否允許亂序讀取、執行或完成；在簡單的 in-order pipeline 中，它們通常不會實際發生。</li>
+          <li><strong>不要把暫存器名稱重複都叫成同一種危障。</strong>前者寫後者讀是 RAW，前者讀後者寫是 WAR，兩者都寫是 WAW。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>在下列指令中，I2 與 I3 分別和 I1 形成哪一種資料危障？<br><span class="inline-code">I1: add t0, t1, t2</span><br><span class="inline-code">I2: sub t3, t0, t4</span><br><span class="inline-code">I3: xor t0, t5, t6</span></p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>I1 與 I2 是 RAW：I1 寫入 <span class="inline-code">t0</span>，I2 讀取 <span class="inline-code">t0</span>。I1 與 I3 是 WAW：兩條指令都寫入 <span class="inline-code">t0</span>，依序完成時最後應保留 I3 的結果。若題目改成 I1 讀取 <span class="inline-code">t0</span>、I3 寫入 <span class="inline-code">t0</span>，則會是 WAR。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 02 · DATA HAZARDS</p>
+    </div>
+  </footer>
+</body>
+</html>

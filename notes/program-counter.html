@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="複習程式計數器 Program Counter 的作用、更新方式與分支指令。">
+  <title>程式計數器 Program Counter｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 01 / CONTROL FLOW</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 01</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 01 · CONTROL FLOW</p>
+        <h1>程式計數器<br><span>Program Counter</span></h1>
+        <p class="article-lead">PC 是處理器追蹤「下一個要執行哪裡」的關鍵暫存器。掌握它，就能把順序執行、跳躍與分支串成一個完整畫面。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>程式計數器（Program Counter, PC）是一個保存下一個要被取出的指令位址的特殊暫存器（register）。在一般的順序執行中，處理器完成取指（instruction fetch）後，PC 會移到下一個指令位址；遇到跳躍或分支時，PC 則會被改成目標位址。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>順序執行</strong><p>下一個位址通常是 <span class="inline-code">PC + 4</span>（以每條指令 4 bytes 為例）。</p></div>
+          <div class="concept-box"><strong>控制流程改變</strong><p><span class="inline-code">beq</span>、<span class="inline-code">jal</span> 等指令會選擇新的目標位址。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用 RV32I RISC-V 架構；每條基本指令為 4 bytes；指令位址以 byte 為單位；採用經典五階段 pipeline（IF、ID、EX、MEM、WB），並忽略壓縮指令與分支預測。</div>
+        <pre><code># 假設目前 PC = 0x1000
+0x1000:  addi t0, zero, 1
+0x1004:  addi t1, zero, 2
+0x1008:  beq  t0, t1, target   # 不成立，PC 走向 0x100c
+0x100c:  add  t2, t0, t1
+0x1010:  jal  zero, finish    # 跳到 finish
+...
+target:  addi t2, zero, 99
+finish:  nop</code></pre>
+        <p>在 <span class="inline-code">0x1008</span> 的 <span class="inline-code">beq</span> 中，因為 <span class="inline-code">t0 ≠ t1</span>，分支不成立，下一個 PC 是順序位址 <span class="inline-code">0x100c</span>。當執行到 <span class="inline-code">jal</span> 時，PC 會改成 <span class="inline-code">finish</span> 的位址，而不會繼續執行緊接在後面的指令。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>PC 不是目前指令本身。</strong>在這個簡化模型中，PC 指向「下一個要取出的指令」；實際 pipeline 中，某條指令可能已經在其他階段。</li>
+          <li><strong>PC 不一定永遠加 4。</strong>只有在順序執行時才如此；分支成立、跳躍或例外發生時，PC 會改成其他目標位址。</li>
+          <li><strong>位址與指令編號不同。</strong>本例以 byte address 計算，所以 4-byte 指令的位址差是 4，不是 1。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>若目前 PC = <span class="inline-code">0x2000</span>，指令大小為 4 bytes，且位於 <span class="inline-code">0x2000</span> 的條件分支成立、目標位址為 <span class="inline-code">0x2040</span>，下一個 PC 應該是多少？如果分支不成立又是多少？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>分支成立時，下一個 PC 是目標位址 <span class="inline-code">0x2040</span>；分支不成立時，依順序執行前進 4 bytes，因此是 <span class="inline-code">0x2004</span>。關鍵在於分支指令會在「目標位址」與「順序位址」之間選擇，而不是兩者相加。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 01 · PROGRAM COUNTER</p>
+    </div>
+  </footer>
+</body>
+</html>

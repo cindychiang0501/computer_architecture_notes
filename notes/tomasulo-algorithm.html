@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="用簡短指令理解 Tomasulo Algorithm、保留站、運算元等待與結果廣播。">
+  <title>Tomasulo Algorithm｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 04 / DYNAMIC SCHEDULING</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 04</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 04 · DYNAMIC SCHEDULING</p>
+        <h1>Tomasulo 演算法<br><span>Tomasulo Algorithm</span></h1>
+        <p class="article-lead">Tomasulo 演算法讓處理器可以動態排程指令：指令先進入保留站等待需要的運算元，資料準備好後再執行，結果則透過共同資料匯流排廣播給等待者。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>Tomasulo 演算法（Tomasulo Algorithm）是一種動態排程（dynamic scheduling）方法。保留站（Reservation Station, RS）會記錄指令、已取得的運算元，以及尚未產生資料的來源標籤；暫存器別名表（Register Alias Table, RAT）則指出某個暫存器目前正等待哪個標籤產生結果。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>發射（Issue）</strong><p>指令分配到可用的 RS，已知的運算元直接存入；未知的運算元記下生產者標籤。</p></div>
+          <div class="concept-box"><strong>等待（Wait）</strong><p>RS 監看共同資料匯流排（Common Data Bus, CDB），等待自己的來源標籤廣播。</p></div>
+          <div class="concept-box"><strong>執行（Execute）</strong><p>所有運算元就緒後，RS 將指令送到功能單元執行，不必讓整條 pipeline 停住。</p></div>
+          <div class="concept-box"><strong>寫回（Write Result）</strong><p>結果帶著標籤廣播；等待相同標籤的 RS 取得資料並更新自己的等待欄位。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用 RV32I RISC-V 暫存器命名；<span class="inline-code">ADD_RS</span> 可執行加法；<span class="inline-code">MUL_RS</span> 可執行乘法；每個保留站一次接收一條指令；以標籤 <span class="inline-code">M1</span>、<span class="inline-code">A1</span> 表示生產者；忽略實際週期數與 CDB 同時廣播的仲裁細節。</div>
+        <pre><code># I1 先產生 t0；I2 需要 t0，因此會在 MUL_RS 等待
+I1: add  t0, t1, t2       # 發射至 ADD_RS，完成後廣播 M1
+I2: mul  t3, t0, t4       # 發射至 MUL_RS；Vj = t0 尚未就緒，Qj = M1
+
+# 結果廣播後，I2 取得 t0 並繼續
+# CDB: M1, value = t1 + t2
+# MUL_RS: Qj == M1 → Vj = value, Qj = ready
+# 下一步：I2 的兩個運算元都就緒，MUL_RS 執行 mul</code></pre>
+        <p>以簡化的狀態追蹤來看，I2 一開始不必阻塞整個處理器，只要在 <span class="inline-code">MUL_RS</span> 中保留。當 I1 的結果以 <span class="inline-code">M1</span> 標籤在 CDB 廣播時，I2 發現自己的 <span class="inline-code">Qj = M1</span>，便把廣播值填入 <span class="inline-code">Vj</span>；此時 I2 的運算元齊全，就能送進乘法單元執行。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>連結 Data Hazards</h2>
+        <p>這個例子是 <a href="data-hazards.html">Data Hazards 筆記</a>中的 RAW（Read After Write）：I2 要讀取 I1 寫入的 <span class="inline-code">t0</span>，所以在 I1 廣播結果以前，I2 不能使用正確資料。Tomasulo 並沒有消除 RAW 的真實資料相依，而是讓 I2 在保留站等待，避免不必要地停住其他無關指令。</p>
+        <p>對 WAR（Write After Read）與 WAW（Write After Write）而言，Tomasulo 會以保留站標籤與暫存器重新命名（register renaming）區分不同生產者，讓不同指令不必爭用同一個暫存器名稱。這能消除名稱造成的假相依；但 RAW 的值相依仍然存在，仍須等資料廣播後才能執行。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>RAW：不能消除</strong><p>I2 真正需要 I1 的結果，必須等 CDB 廣播完成。</p></div>
+          <div class="concept-box"><strong>WAR：重新命名可避免</strong><p>後面的寫入使用新的標籤，不會覆蓋前面指令要讀的舊值。</p></div>
+          <div class="concept-box"><strong>WAW：重新命名可避免</strong><p>不同寫入各自對應不同標籤，再依架構規則更新可見的暫存器狀態。</p></div>
+          <div class="concept-box"><strong>重點</strong><p>保留站處理等待時機；標籤與重新命名處理名稱衝突。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>保留站不是暫存器本身。</strong>它是保存等待中指令與運算元狀態的硬體項目；暫存器別名表則追蹤暫存器目前對應的結果來源。</li>
+          <li><strong>廣播不是代表所有指令立刻完成。</strong>只有等待該標籤且其他運算元也已準備好的指令，才能開始自己的執行。</li>
+          <li><strong>重新命名不會消除 RAW。</strong>它主要消除 WAR 與 WAW 這類名稱相依；真正的資料相依仍必須等待生產者結果。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>若 <span class="inline-code">I1: add t0, t1, t2</span> 的結果標籤是 <span class="inline-code">A1</span>，而 <span class="inline-code">I2: sub t3, t0, t4</span> 已進入保留站並記錄 <span class="inline-code">Qj = A1</span>，I2 何時可以開始執行？這和 RAW、WAR、WAW 哪一種危障有關？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>I2 要等到 CDB 廣播 <span class="inline-code">A1</span> 的結果，將資料填入保留站的 <span class="inline-code">Vj</span>，且另一個運算元 <span class="inline-code">t4</span> 也已就緒後，才能開始執行。這是 RAW：I2 讀取 I1 尚未產生的結果。重新命名可以處理 WAR、WAW，但不能讓 I2 在資料尚未產生時提前使用它。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 04 · TOMASULO ALGORITHM</p>
+    </div>
+  </footer>
+</body>
+</html>

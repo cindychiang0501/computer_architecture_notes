@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="複習超長指令字 VLIW 與由編譯器進行的靜態指令排程。">
+  <title>超長指令字 VLIW｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 06 / INSTRUCTION PARALLELISM</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 06</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 06 · INSTRUCTION PARALLELISM</p>
+        <h1>超長指令字<br><span>VLIW</span></h1>
+        <p class="article-lead">VLIW 把多個可同時執行的操作放進同一個固定格式的 instruction bundle，讓編譯器在程式執行前先決定平行排程。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>超長指令字（Very Long Instruction Word, VLIW）是一種利用指令級平行（Instruction-Level Parallelism, ILP）的設計。與由硬體在執行時動態找平行性的 superscalar 處理器不同，VLIW 主要由編譯器（compiler）分析相依性，將多個互不衝突的操作靜態排進同一個 bundle。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>固定欄位</strong><p>一個 bundle 可包含多個 issue slot，每個 slot 對應特定功能單元。</p></div>
+          <div class="concept-box"><strong>編譯器排程</strong><p>編譯器負責找出可平行操作、避開相依，必要時插入 NOP。</p></div>
+          <div class="concept-box"><strong>硬體簡化</strong><p>硬體較少需要複雜的動態發射與相依性檢查邏輯。</p></div>
+          <div class="concept-box"><strong>程式碼膨脹</strong><p>若可平行操作不足，bundle 中會出現空 slot，可能增加指令大小。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用簡化 VLIW ISA；每個 bundle 有兩個固定 slot：Slot 0 只能給 ALU，Slot 1 只能給 Load/Store；每個 slot 的操作在同一 cycle 發射；ALU 結果下一個 cycle 才可被後續指令使用；編譯器必須處理資料相依，不使用硬體動態重排。</div>
+        <pre><code># Bundle 格式：[Slot 0: ALU] | [Slot 1: Load/Store]
+# Cycle 1：兩個操作彼此獨立，可同時發射
+[ add  r1, r2, r3 ] | [ ld   r4, 0(r5) ]
+
+# Cycle 2：r1 已可使用；另一個 slot 沒有合適操作
+[ sub  r6, r1, r7 ] | [ nop ]
+
+# 若把 sub 放在 Cycle 1，會太早讀取尚未產生的 r1。</code></pre>
+        <p>第一個 bundle 同時執行加法與載入，因為兩者沒有資料相依且各自使用不同 slot。第二個 cycle 的 <span class="inline-code">sub</span> 依賴前一個 cycle 產生的 <span class="inline-code">r1</span>，因此必須延後；Slot 1 沒有可安全安排的操作時，只能放入 <span class="inline-code">nop</span>。這就是 VLIW 將排程責任交給編譯器的例子。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>VLIW 不是單純把一條指令寫得很長。</strong>長字內含多個有明確 slot 意義的操作，重點是同一個 bundle 能否平行發射。</li>
+          <li><strong>VLIW 與 superscalar 不同。</strong>VLIW 主要由編譯器靜態排程；superscalar 通常由硬體在執行時判斷哪些指令可以同時發射。</li>
+          <li><strong>有多個 slot 不代表每個 cycle 都能填滿。</strong>若有資料相依、控制流程限制或缺少適合的操作，空 slot 會變成 NOP。</li>
+          <li><strong>換處理器實作可能需要重新編譯。</strong>不同 VLIW 處理器的 slot 數量、功能單元與延遲假設不同，編譯後的 bundle 不一定能直接移植。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>在兩個 slot 的 VLIW 處理器中，<span class="inline-code">add r1, r2, r3</span> 與 <span class="inline-code">ld r4, 0(r5)</span> 可以放在同一個 bundle 嗎？如果下一條是依賴 <span class="inline-code">r1</span> 的 <span class="inline-code">sub</span>，為什麼不能和 <span class="inline-code">add</span> 放在同一個 cycle？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>可以，因為 <span class="inline-code">add</span> 與 <span class="inline-code">ld</span> 使用不同 slot，且彼此沒有資料相依。<span class="inline-code">sub</span> 需要 <span class="inline-code">add</span> 產生的 <span class="inline-code">r1</span>，在本例假設下必須等到下一個 cycle 才能讀到正確值，因此不能與 <span class="inline-code">add</span> 同時發射。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 06 · VLIW</p>
+    </div>
+  </footer>
+</body>
+</html>

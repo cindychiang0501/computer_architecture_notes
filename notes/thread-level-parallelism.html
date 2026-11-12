@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="複習執行緒層級平行 Thread Level Parallelism 與多核心、硬體多執行緒。">
+  <title>執行緒層級平行 Thread Level Parallelism｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 07 / PARALLEL PROCESSING</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 07</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 07 · PARALLEL PROCESSING</p>
+        <h1>執行緒層級平行<br><span>Thread Level Parallelism</span></h1>
+        <p class="article-lead">當不同執行緒的工作彼此獨立時，處理器可以讓它們同時在不同核心或硬體執行緒上前進，以提高整體吞吐量。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>執行緒層級平行（Thread Level Parallelism, TLP）是同時執行多個執行緒（thread）的能力。每個執行緒通常有自己的程式計數器（Program Counter, PC）與暫存器狀態，但可能共享主記憶體與快取。多核心（multicore）可把不同執行緒分派到不同核心；硬體多執行緒（Hardware Multithreading）則讓一個核心保留多個執行緒的狀態，在某個執行緒等待記憶體時切換或交錯執行另一個執行緒。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>平行度</strong><p>同一時間能前進的獨立執行緒數量，會受核心數、硬體執行緒數與工作相依限制。</p></div>
+          <div class="concept-box"><strong>吞吐量</strong><p>TLP 主要改善單位時間完成的工作量，不一定讓單一執行緒的延遲變短。</p></div>
+          <div class="concept-box"><strong>共享資料</strong><p>執行緒共享記憶體時要處理同步（synchronization）與資料競爭（data race）。</p></div>
+          <div class="concept-box"><strong>與 ILP 區分</strong><p>指令級平行（ILP）平行的是同一執行緒內的指令；TLP 平行的是不同執行緒的工作。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用 OpenMP 風格的 C 程式；系統有至少 4 個可同時執行的硬體執行單元；迴圈每次更新不同的陣列元素，沒有跨迭代的資料相依；編譯器以平行 runtime 將迴圈工作分派給多個執行緒。</div>
+        <pre><code>#pragma omp parallel for
+for (int i = 0; i &lt; 4; i++) {
+    c[i] = a[i] + b[i];
+}
+
+# 一種可能的分派：
+# Thread 0 → i = 0      Thread 2 → i = 2
+# Thread 1 → i = 1      Thread 3 → i = 3</code></pre>
+        <p>四次迭代彼此獨立，因此可以同時執行。若每個執行緒被安排到不同核心，四個加法可能在相近時間內完成；若只有兩個核心，runtime 仍可建立四個執行緒，但它們會分批共享硬體資源。當陣列重疊、需要依序累加，或寫入共享計數器卻沒有同步時，平行化就可能產生錯誤或無法帶來加速。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>TLP 不等於 ILP。</strong>TLP 同時處理不同執行緒；ILP 則是在單一執行緒內同時處理彼此獨立的指令。</li>
+          <li><strong>多執行緒不一定代表多核心。</strong>一個核心也能以硬體多執行緒交錯處理多個執行緒，但它們仍會共享該核心的執行資源。</li>
+          <li><strong>執行緒數量越多不一定越快。</strong>執行緒會爭用核心、快取與記憶體頻寬；建立與同步執行緒也有額外成本。</li>
+          <li><strong>共享資料需要同步。</strong>若多個執行緒同時更新同一個變數，沒有 lock、atomic 或其他同步機制，就可能出現 data race。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>一個程式有 4 個互不相依的工作項目，但機器只有 2 個核心。這 4 個工作能否同時完成？使用 TLP 時，最合理的預期是什麼？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>4 個工作可以被分成 4 個執行緒，但只有 2 個核心能同時真正執行 2 個工作；其餘工作會等待或輪流取得核心。因此 TLP 能提高整體吞吐量，但不會讓 4 個工作在同一瞬間都使用獨立核心。實際加速還會受到排程、記憶體頻寬與執行緒管理成本影響。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 07 · THREAD LEVEL PARALLELISM</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="複習推測執行 Speculative Execution、分支預測與預測錯誤的處理方式。">
+  <title>推測執行 Speculation｜計算機結構複習筆記</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">NOTE 05 / CONTROL FLOW</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="container article-wrap">
+    <nav class="breadcrumb" aria-label="麵包屑導覽"><a href="../index.html">首頁</a> <span aria-hidden="true">/</span> 筆記 05</nav>
+
+    <article>
+      <header class="article-header">
+        <p class="eyebrow">NOTE 05 · CONTROL FLOW</p>
+        <h1>推測執行<br><span>Speculation</span></h1>
+        <p class="article-lead">分支的結果要到後面的 pipeline 階段才知道，處理器可以先猜一條路並提前工作；猜對就省下等待，猜錯就丟掉錯誤路徑的結果。</p>
+      </header>
+
+      <section class="article-section">
+        <h2>核心觀念</h2>
+        <p>推測執行（Speculative Execution）是處理器在尚未確定控制流程結果前，先取出並執行預測路徑上的指令。分支預測（Branch Prediction）提供「下一條可能走哪裡」的判斷；推測執行則是處理器根據這個判斷，先把指令送入 pipeline 工作。</p>
+        <div class="concept-grid">
+          <div class="concept-box"><strong>預測正確</strong><p>預測路徑就是實際路徑，已完成的工作可以繼續，結果依序提交（commit）。</p></div>
+          <div class="concept-box"><strong>預測錯誤</strong><p>清除錯誤路徑上的年輕指令（flush），恢復正確 PC，再從正確目標重新取指。</p></div>
+        </div>
+      </section>
+
+      <section class="article-section">
+        <h2>指令範例</h2>
+        <div class="assumption"><strong>本例假設：</strong>使用 RV32I RISC-V 架構；每條基本指令為 4 bytes；採用經典五階段 pipeline（IF、ID、EX、MEM、WB）；<span class="inline-code">beq</span> 在 EX 階段判定結果；處理器使用分支預測先決定要取順序路徑或目標路徑，並忽略 delay slot。</div>
+        <pre><code># t0 = 目前計數器，t1 = 結束值
+loop:
+0x3000:  beq  t0, t1, done   # 預測：不成立（not taken）
+0x3004:  addi t0, t0, 1      # 先推測執行
+0x3008:  jal  zero, loop     # 先推測執行
+done:
+0x3010:  addi a0, t0, 0</code></pre>
+        <p>當處理器在 <span class="inline-code">0x3000</span> 讀到 <span class="inline-code">beq</span> 時，若預測器預測「不成立」，PC 會先走向 <span class="inline-code">0x3004</span>，於是 <span class="inline-code">addi</span> 和後面的指令可以提前進入 pipeline。此時它們仍是推測中的工作，尚未能在分支結果確認前對架構狀態做不可逆的提交。</p>
+        <p>如果 <span class="inline-code">t0 ≠ t1</span>，預測正確：分支確實不成立，推測執行的指令成為正確路徑，pipeline 可以繼續前進。若 <span class="inline-code">t0 = t1</span>，預測錯誤：處理器在 EX 階段發現分支應該跳到 <span class="inline-code">done</span>，就會 flush <span class="inline-code">0x3004</span> 之後、尚未提交的錯誤路徑指令，將 PC 重新導向 <span class="inline-code">0x3010</span>，再從正確路徑取指。這會造成幾個 pipeline cycle 的分支錯誤代價。</p>
+      </section>
+
+      <section class="article-section">
+        <h2>常見混淆</h2>
+        <ul class="confusion-list">
+          <li><strong>Branch Prediction 是「猜哪一條路」。</strong>它是對條件分支結果或目標位址的預測，例如猜 branch taken 或 not taken。</li>
+          <li><strong>Speculative Execution 是「先照猜的路做」。</strong>它是利用預測結果提前取指、解碼與執行；因此兩者相關，但不是同義詞。</li>
+          <li><strong>預測錯誤不等於程式邏輯錯誤。</strong>處理器會丟棄尚未提交的錯誤路徑工作，恢復正確 PC；代價主要是浪費的 cycle 與重新填滿 pipeline 的時間。</li>
+          <li><strong>推測結果不應直接破壞架構狀態。</strong>實作通常透過 reorder buffer 等機制保留暫存結果，等指令確定位於正確路徑且可依序提交後，才更新可見狀態。</li>
+        </ul>
+      </section>
+
+      <section class="article-section">
+        <h2>自我檢查題</h2>
+        <div class="quiz">
+          <p>處理器預測 <span class="inline-code">beq</span> 不成立，因此先執行順序路徑上的兩條指令。稍後在 EX 階段發現分支其實成立。這兩條指令應該保留還是丟棄？PC 接下來要指向哪裡？</p>
+          <details>
+            <summary>展開查看答案</summary>
+            <p>應該丟棄這兩條尚未提交的推測指令，因為它們位於錯誤的順序路徑。處理器會 flush 錯誤路徑上的年輕指令，並將 PC 重新導向分支的目標位址，再從正確路徑取指與執行。這就是一次 branch misprediction penalty。</p>
+          </details>
+        </div>
+      </section>
+
+      <a class="back-link" href="../index.html">← 返回複習筆記首頁</a>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>NOTE 05 · SPECULATION</p>
+    </div>
+  </footer>
+</body>
+</html>
