@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="用短篇筆記、指令範例與自我檢查題複習計算機結構。">
+  <title>計算機結構複習筆記</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="回到計算機結構複習筆記首頁">
+        <span class="brand-mark" aria-hidden="true">⌘</span>
+        <span>計算機結構<span class="brand-muted"> / RECAP</span></span>
+      </a>
+      <span class="header-note">學習小站 · v1.0</span>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero container">
+      <div class="hero-copy">
+        <p class="eyebrow">COMPUTER ORGANIZATION</p>
+        <h1>把硬體觀念，<br><span>讀成一張清楚的地圖。</span></h1>
+        <p class="hero-text">用短篇解說、可追蹤的指令範例和自我檢查題，逐步整理計算機結構的核心觀念。</p>
+        <a class="button button-primary" href="#notes">開始複習 <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="hero-visual" aria-label="抽象化的處理器資料流示意圖" role="img">
+        <div class="chip-outline">
+          <span class="pin pin-1"></span><span class="pin pin-2"></span><span class="pin pin-3"></span>
+          <span class="pin pin-4"></span><span class="pin pin-5"></span><span class="pin pin-6"></span>
+          <div class="chip-core">
+            <span class="chip-label">CPU</span>
+            <span class="chip-line"></span>
+            <span class="chip-sub">FETCH · DECODE · EXECUTE</span>
+          </div>
+        </div>
+        <div class="signal signal-a">PC → IR</div>
+        <div class="signal signal-b">MEMORY</div>
+        <div class="signal signal-c">ALU</div>
+      </div>
+    </section>
+
+    <section id="notes" class="notes-section container">
+      <div class="section-heading">
+        <div>
+        <p class="eyebrow">NOTE INDEX / 01–07</p>
+          <h2>複習筆記</h2>
+        </div>
+        <p class="section-intro">從一個指標開始，建立對指令執行流程的整體感。</p>
+      </div>
+
+      <article class="note-card">
+        <div class="note-number">01</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">控制流程</span><span>約 5 分鐘</span></div>
+          <h3>程式計數器 Program Counter</h3>
+          <p>理解 PC 如何指出下一個要取出的指令，以及分支指令如何改變正常的執行順序。</p>
+          <a class="text-link" href="notes/program-counter.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">02</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">Pipeline</span><span>約 6 分鐘</span></div>
+          <h3>資料危障 Data Hazards</h3>
+          <p>比較 RAW、WAR 與 WAW，理解指令間的資料相依，以及 forwarding、stall 與 register renaming 的用途。</p>
+          <a class="text-link" href="notes/data-hazards.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">03</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">動態排程</span><span>約 7 分鐘</span></div>
+          <h3>記分板排程 Scoreboarding</h3>
+          <p>用功能單元、指令狀態與暫存器結果狀態追蹤指令，理解動態排程如何處理 RAW、WAR 與 WAW。</p>
+          <a class="text-link" href="notes/scoreboarding.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">04</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">動態排程</span><span>約 7 分鐘</span></div>
+          <h3>Tomasulo Algorithm</h3>
+          <p>用保留站與結果廣播理解動態排程，並連結 RAW、WAR、WAW 與暫存器重新命名。</p>
+          <a class="text-link" href="notes/tomasulo-algorithm.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">05</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">控制流程</span><span>約 7 分鐘</span></div>
+          <h3>推測執行 Speculation</h3>
+          <p>理解處理器如何依據分支預測先執行後續指令，以及預測正確與錯誤時的提交、清除與恢復。</p>
+          <a class="text-link" href="notes/speculation.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">06</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">指令級平行</span><span>約 7 分鐘</span></div>
+          <h3>超長指令字 VLIW</h3>
+          <p>理解編譯器如何把可平行的操作打包到同一個 instruction bundle，並處理相依與空的 issue slot。</p>
+          <a class="text-link" href="notes/vliw.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+
+      <article class="note-card">
+        <div class="note-number">07</div>
+        <div class="note-card-content">
+          <div class="note-meta"><span class="tag">平行處理</span><span>約 7 分鐘</span></div>
+          <h3>執行緒層級平行 Thread Level Parallelism</h3>
+          <p>從多核心、硬體多執行緒到共享記憶體，理解如何同時執行不同執行緒以提升整體吞吐量。</p>
+          <a class="text-link" href="notes/thread-level-parallelism.html">閱讀這篇筆記 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="note-card-arrow" aria-hidden="true">↗</div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>計算機結構複習筆記</p>
+      <p>HTML · CSS · GitHub Pages ready</p>
+    </div>
+  </footer>
+</body>
+</html>
